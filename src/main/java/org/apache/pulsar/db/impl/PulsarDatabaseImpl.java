@@ -128,12 +128,12 @@ public class PulsarDatabaseImpl<V, O> implements PulsarDatabase<V, O> {
 
     }
 
-    public static <V, O> PulsarDatabaseBuilder builder(PulsarClient pulsarClient) {
-        return new RealPulsarDatabaseBuilder().withPulsarClient(pulsarClient);
+    public static RealPulsarDatabaseBuilder builder() {
+        return new RealPulsarDatabaseBuilder();
     }
 
 
-    private static class RealPulsarDatabaseBuilder implements PulsarDatabaseBuilder {
+    public static class RealPulsarDatabaseBuilder implements PulsarDatabaseBuilder {
         private PulsarClient client;
         private Function<?, byte[]> opSerializer;
         private Function<byte[], ?> opDeserializer;
@@ -141,36 +141,36 @@ public class PulsarDatabaseImpl<V, O> implements PulsarDatabase<V, O> {
         private BiConsumer<?, ?> changeLogApplier;
         private String topic;
 
-        public PulsarDatabaseBuilder withPulsarClient(PulsarClient pulsarClient) {
+        public RealPulsarDatabaseBuilder withPulsarClient(PulsarClient pulsarClient) {
             this.client = pulsarClient;
             return this;
         }
 
-        public PulsarDatabaseBuilder withTopic(String topic) {
+        public RealPulsarDatabaseBuilder withTopic(String topic) {
             this.topic = topic;
             return this;
         }
 
         @Override
-        public <O> PulsarDatabaseBuilder withOpSerializer(Function<O, byte[]> opSerializer) {
+        public <O> RealPulsarDatabaseBuilder withOpSerializer(Function<O, byte[]> opSerializer) {
             this.opSerializer = opSerializer;
             return this;
         }
 
         @Override
-        public <O> PulsarDatabaseBuilder withOpDeserializer(Function<byte[], O> opDeserializer) {
+        public <O> RealPulsarDatabaseBuilder withOpDeserializer(Function<byte[], O> opDeserializer) {
             this.opDeserializer = opDeserializer;
             return this;
         }
 
         @Override
-        public <V> PulsarDatabaseBuilder withDatabaseInitializer(Supplier<V> databaseInitializer) {
+        public <V> RealPulsarDatabaseBuilder withDatabaseInitializer(Supplier<V> databaseInitializer) {
             this.databaseInitializer = databaseInitializer;
             return this;
         }
 
         @Override
-        public <V, O> PulsarDatabaseBuilder withChangeLogApplier(BiConsumer<V, O> changeLogApplier) {
+        public <V, O> RealPulsarDatabaseBuilder withChangeLogApplier(BiConsumer<V, O> changeLogApplier) {
             this.changeLogApplier = changeLogApplier;
             return this;
         }
