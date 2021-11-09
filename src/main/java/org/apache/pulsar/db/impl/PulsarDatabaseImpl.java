@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -25,8 +26,13 @@ public class PulsarDatabaseImpl<V, O> implements PulsarDatabase<V, O> {
     private final V state;
 
     private CompletableFuture<Reader<byte[]>> reader;
+    private CompletableFuture<?> currentReadHandle;
 
     private synchronized CompletableFuture<Reader<byte[]>> getReaderHandle() {
+        return reader;
+    }
+
+    private synchronized CompletableFuture<Reader<byte[]>> ensureReaderHandle() {
         if (reader == null) {
             reader = pulsarClient.newReader()
                     .topic(topic)
@@ -66,9 +72,43 @@ public class PulsarDatabaseImpl<V, O> implements PulsarDatabase<V, O> {
         changeLogApplier.accept(state, op);
     }
 
-    private CompletableFuture<?> ensureLatestData() {
-        CompletableFuture<Reader<byte[]>> readerHandle = getReaderHandle();
-        return readerHandle.thenCompose(this::readNextMessageIfAvailable);
+    // visible for testing
+    synchronized CompletableFuture<?> ensureLatestData() {
+        return ensureLatestData(false);
+    }
+
+    synchronized CompletableFuture<?> ensureLatestData(boolean beforeWrite) {
+        if (currentReadHandle != null) {
+            if (beforeWrite) {
+                // we are inside a write loop, so
+                // we must ensure that we start to read now
+                // otherwise the write would use non up-to-date data
+                // so let's finish the current loop
+                log.info("A read was already pending, starting a new one in order to ensure consistency");
+                return currentReadHandle
+                        .thenCompose(___ -> ensureLatestData(false));
+            }
+            // if there is an ongoing read operation then complete it
+            return currentReadHandle;
+        }
+        // please note that the read operation is async,
+        // and it is not execute inside this synchronized block
+        CompletableFuture<Reader<byte[]>> readerHandle = ensureReaderHandle();
+        final CompletableFuture<?> newReadHandle
+                = readerHandle.thenCompose(this::readNextMessageIfAvailable);
+        currentReadHandle = newReadHandle;
+        return newReadHandle.whenComplete((a, b) -> {
+            endReadLoop(newReadHandle);
+            if (b != null) {
+                throw new CompletionException(b);
+            }
+        });
+    }
+
+    private synchronized void endReadLoop(CompletableFuture<?> handle) {
+        if (handle == currentReadHandle) {
+            currentReadHandle = null;
+        }
     }
 
     @Override
@@ -92,7 +132,7 @@ public class PulsarDatabaseImpl<V, O> implements PulsarDatabase<V, O> {
             return producerHandle.thenCompose(opProducer -> {
                 // nobody can write now to the topic
                 // wait for local cache to be up-to-date
-                CompletableFuture<K> dummy =  ensureLatestData()
+                CompletableFuture<K> dummy =  ensureLatestData(true)
                         .thenCompose((___) -> {
                             // build the Op, this will usually use the contents of the local cache
                             List<O> ops = opBuilder.apply(state);
@@ -185,15 +225,17 @@ public class PulsarDatabaseImpl<V, O> implements PulsarDatabase<V, O> {
                     changeLogApplier,
                     topic,
                     databaseInitializer.get(),
+                    null,
                     null);
         }
     }
 
 
     @Override
-    public synchronized void close() {
-        if (reader != null) {
-            reader.thenAccept(reader -> {
+    public void close() {
+        CompletableFuture<Reader<byte[]>> readerHandle = getReaderHandle();
+        if (readerHandle != null) {
+            readerHandle.thenAccept(reader -> {
                 try {
                     reader.close();
                 } catch (Exception err) {

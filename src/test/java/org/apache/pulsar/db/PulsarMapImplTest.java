@@ -1,11 +1,5 @@
 package org.apache.pulsar.db;
 
-import org.apache.pulsar.PulsarStandalone;
-import org.apache.pulsar.broker.ServiceConfiguration;
-import org.apache.pulsar.client.admin.PulsarAdmin;
-import org.apache.pulsar.client.api.PulsarClient;
-import org.apache.pulsar.common.policies.data.ClusterData;
-import org.apache.pulsar.common.policies.data.TenantInfo;
 import org.apache.pulsar.db.impl.MemoryDatabaseImpl;
 import org.apache.pulsar.db.impl.PulsarDatabaseImpl;
 import org.apache.pulsar.db.serde.StandardSerDe;
@@ -13,8 +7,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
-import java.util.Collections;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -54,78 +46,44 @@ public class PulsarMapImplTest {
 
     @Test
     public void basicTestWithPulsar() throws Exception {
-        try (PulsarStandalone pulsarBroker = new PulsarStandalone()) {
-            pulsarBroker.setNoFunctionsWorker(true);
-            pulsarBroker.setNoStreamStorage(true);
-            pulsarBroker.setNumOfBk(1);
-            pulsarBroker.setBkDir(tempDir.getAbsolutePath());
-            pulsarBroker.setZkDir(tempDir.getAbsolutePath());
-            pulsarBroker.setConfigFile("src/test/resources/standalone.conf");
-            ServiceConfiguration config = new ServiceConfiguration();
-            config.setManagedLedgerDefaultEnsembleSize(1);
-            config.setManagedLedgerDefaultWriteQuorum(1);
-            config.setManagedLedgerDefaultAckQuorum(1);
-            config.setZookeeperServers("localhost:2181");
-            config.setClusterName("standalone");
-            config.setRunningStandalone(true);
-            pulsarBroker.setConfig(config);
+        try (PulsarStandaloneStarter pulsarBroker = new PulsarStandaloneStarter(tempDir)) {
             pulsarBroker.start();
 
-            try (PulsarClient pulsarClient = PulsarClient
-                    .builder()
-                    .serviceUrl("pulsar://localhost:6650")
-                    .build();
-                 PulsarAdmin admin = PulsarAdmin
-                         .builder()
-                         .serviceHttpUrl("http://localhost:8080")
-                         .build();
-            ) {
-                admin.clusters().createCluster("standalone",
-                        ClusterData.builder()
-                        .serviceUrl("http://localhost:8080")
-                        .build());
-                admin.tenants().createTenant("public", TenantInfo
-                        .builder()
-                        .allowedClusters(Collections.singleton("standalone"))
-                        .build());
-                admin.namespaces().createNamespace("public/default");
+            try (PulsarMap<String, Integer> map = PulsarMap.build(
+                    PulsarDatabaseImpl
+                            .builder()
+                            .withPulsarClient(pulsarBroker.getPulsarClient())
+                            .withTopic("persistent://public/default/mymap"),
+                    StandardSerDe.STRING,
+                    StandardSerDe.INTEGER);) {
 
-                try (PulsarMap<String, Integer> map = PulsarMap.build(
+                map.put("a", 1).get();
+                assertEquals(1, map.get("a", false).get());
+
+                // open another instance, ensure that we can read the data
+                try (PulsarMap<String, Integer> map2 = PulsarMap.build(
                         PulsarDatabaseImpl
                                 .builder()
-                                .withPulsarClient(pulsarClient)
+                                .withPulsarClient(pulsarBroker.getPulsarClient())
                                 .withTopic("persistent://public/default/mymap"),
                         StandardSerDe.STRING,
                         StandardSerDe.INTEGER);) {
 
-                    map.put("a", 1).get();
-                    assertEquals(1, map.get("a", false).get());
-
-                    // open another instance, ensure that we can read the data
-                    try (PulsarMap<String, Integer> map2 = PulsarMap.build(
-                            PulsarDatabaseImpl
-                                    .builder()
-                                    .withPulsarClient(pulsarClient)
-                                    .withTopic("persistent://public/default/mymap"),
-                            StandardSerDe.STRING,
-                            StandardSerDe.INTEGER);) {
-
-                        assertEquals(1, map2.get("a", true).get());
+                    assertEquals(1, map2.get("a", true).get());
 
 
-                        // write from the second instance
-                        map2.put("a", 2).get();
-                        assertEquals(2, map2.get("a", false).get());
+                    // write from the second instance
+                    map2.put("a", 2).get();
+                    assertEquals(2, map2.get("a", false).get());
 
-                        // read from the first instance
-                        assertEquals(2, map.get("a", true).get());
-                    }
-
+                    // read from the first instance
+                    assertEquals(2, map.get("a", true).get());
                 }
 
-
             }
-    }
+
+
+        }
 
     }
 }
