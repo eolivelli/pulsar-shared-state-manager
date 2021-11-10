@@ -44,3 +44,23 @@ like keeping the ownership of the topic and relying on some fencing mechanism.
 There is a demo implementation of a simple Key-Value store backed by a Pulsar Topic.
 You can find it in the [test folder](./src/test/java/org/apache/pulsar/db/PulsarMapImplTest.java)
 
+This is the [Pulsar Map](./src/main/java/org/apache/pulsar/db/PulsarMap.java) API
+
+This is how it looks like to implement a Map with PulsarDatabase [PulsarMapImpl](src/main/java/org/apache/pulsar/db/impl/PulsarMapImpl.java)
+
+An example of usage
+
+
+```
+try (PulsarMap<String, Integer> map = PulsarMap.build(
+   PulsarDatabaseImpl .builder()
+     .withPulsarClient(pulsarBroker.getPulsarClient())
+     .withTopic("persistent://public/default/mymap"),
+     StandardSerDe.STRING,
+     StandardSerDe.INTEGER);) {
+
+     map.put("a", 1).get();
+}
+```
+
+
