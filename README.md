@@ -1,4 +1,6 @@
-# Simple Pulsar based Database
+# Simple Pulsar based Shared State Manager
+
+See Pulsar PIP-124 https://github.com/apache/pulsar/issues/13490 
 
 This project is a proof-of-concept about how to implement a very simple state storage backed by a Pulsar topic.
 
