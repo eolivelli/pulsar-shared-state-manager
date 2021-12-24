@@ -14,7 +14,7 @@ import java.util.function.Function;
 public interface PulsarMap<K,V> extends AutoCloseable {
 
     static <K,V> PulsarMap<K,V> build(
-            PulsarDatabase.PulsarDatabaseBuilder builder,
+            PulsarSharedStateManager.PulsarSharedStateManagerBuilder builder,
             SerDe<K> keySerDe,
             SerDe<V> valueSerDe) {
         return new PulsarMapImpl<>(builder, keySerDe, valueSerDe);

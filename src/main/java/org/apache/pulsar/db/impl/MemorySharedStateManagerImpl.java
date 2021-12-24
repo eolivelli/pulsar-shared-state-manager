@@ -1,7 +1,7 @@
 package org.apache.pulsar.db.impl;
 
 import lombok.AllArgsConstructor;
-import org.apache.pulsar.db.PulsarDatabase;
+import org.apache.pulsar.db.PulsarSharedStateManager;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -10,7 +10,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 @AllArgsConstructor
-public class MemoryDatabaseImpl<V, O> implements PulsarDatabase<V, O> {
+public class MemorySharedStateManagerImpl<V, O> implements PulsarSharedStateManager<V, O> {
 
     private final Function<O, byte[]> opSerializer;
     private final Function<byte[], O> opDeserializer;
@@ -38,44 +38,44 @@ public class MemoryDatabaseImpl<V, O> implements PulsarDatabase<V, O> {
         });
     }
 
-    public static PulsarDatabaseBuilder builder() {
+    public static PulsarSharedStateManagerBuilder builder() {
         return new MockPulsarDatabaseBuilder();
     }
 
 
-    private static class MockPulsarDatabaseBuilder implements PulsarDatabaseBuilder {
+    private static class MockPulsarDatabaseBuilder implements PulsarSharedStateManagerBuilder {
         private Function<?, byte[]> opSerializer;
         private Function<byte[], ?> opDeserializer;
         private Supplier<?> databaseInitializer;
         private BiConsumer<?, ?> changeLogApplier;
 
         @Override
-        public <O> PulsarDatabaseBuilder withOpSerializer(Function<O, byte[]> opSerializer) {
+        public <O> PulsarSharedStateManagerBuilder withOpSerializer(Function<O, byte[]> opSerializer) {
             this.opSerializer = opSerializer;
             return this;
         }
 
         @Override
-        public <O> PulsarDatabaseBuilder withOpDeserializer(Function<byte[], O> opDeserializer) {
+        public <O> PulsarSharedStateManagerBuilder withOpDeserializer(Function<byte[], O> opDeserializer) {
             this.opDeserializer = opDeserializer;
             return this;
         }
 
         @Override
-        public <V> PulsarDatabaseBuilder withDatabaseInitializer(Supplier<V> databaseInitializer) {
+        public <V> PulsarSharedStateManagerBuilder withDatabaseInitializer(Supplier<V> databaseInitializer) {
             this.databaseInitializer = databaseInitializer;
             return this;
         }
 
         @Override
-        public <V,O> PulsarDatabaseBuilder withChangeLogApplier(BiConsumer<V, O> changeLogApplier) {
+        public <V,O> PulsarSharedStateManagerBuilder withChangeLogApplier(BiConsumer<V, O> changeLogApplier) {
             this.changeLogApplier = changeLogApplier;
             return this;
         }
 
         @Override
-        public <V,O> PulsarDatabase<V, O> build() {
-            return new MemoryDatabaseImpl(opSerializer, opDeserializer, changeLogApplier, databaseInitializer.get());
+        public <V,O> PulsarSharedStateManager<V, O> build() {
+            return new MemorySharedStateManagerImpl(opSerializer, opDeserializer, changeLogApplier, databaseInitializer.get());
         }
     }
 

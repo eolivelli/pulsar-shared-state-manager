@@ -3,7 +3,7 @@ package org.apache.pulsar.db.impl;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.api.*;
-import org.apache.pulsar.db.PulsarDatabase;
+import org.apache.pulsar.db.PulsarSharedStateManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,7 +16,7 @@ import java.util.function.Supplier;
 
 @AllArgsConstructor
 @Slf4j
-public class PulsarDatabaseImpl<V, O> implements PulsarDatabase<V, O> {
+public class PulsarSharedStateManagerImpl<V, O> implements PulsarSharedStateManager<V, O> {
     private final PulsarClient pulsarClient;
     private final Function<O, byte[]> opSerializer;
     private final Function<byte[], O> opDeserializer;
@@ -173,7 +173,7 @@ public class PulsarDatabaseImpl<V, O> implements PulsarDatabase<V, O> {
     }
 
 
-    public static class RealPulsarDatabaseBuilder implements PulsarDatabaseBuilder {
+    public static class RealPulsarDatabaseBuilder implements PulsarSharedStateManagerBuilder {
         private PulsarClient client;
         private Function<?, byte[]> opSerializer;
         private Function<byte[], ?> opDeserializer;
@@ -216,10 +216,10 @@ public class PulsarDatabaseImpl<V, O> implements PulsarDatabase<V, O> {
         }
 
         @Override
-        public <V,O> PulsarDatabase<V, O> build() {
+        public <V,O> PulsarSharedStateManager<V, O> build() {
             Objects.requireNonNull(topic, "Topic is required");
             Objects.requireNonNull(client, "Pulsar client is required");
-            return new PulsarDatabaseImpl(client,
+            return new PulsarSharedStateManagerImpl(client,
                     opSerializer,
                     opDeserializer,
                     changeLogApplier,

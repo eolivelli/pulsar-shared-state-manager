@@ -5,7 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.pulsar.db.PulsarDatabase;
+import org.apache.pulsar.db.PulsarSharedStateManager;
 import org.apache.pulsar.db.PulsarMap;
 import org.apache.pulsar.db.SerDe;
 
@@ -23,17 +23,17 @@ import java.util.function.Function;
 @Slf4j
 public class PulsarMapImpl <K,V> implements PulsarMap<K,V> {
     private static ObjectMapper mapper = new ObjectMapper();
-    private final PulsarDatabase<Map<K,V>, MapOp> database;
+    private final PulsarSharedStateManager<Map<K,V>, MapOp> stateManager;
     private final SerDe<K> keySerDe;
     private final SerDe<V> valueSerDe;
 
-    public PulsarMapImpl(PulsarDatabase.PulsarDatabaseBuilder builder,
+    public PulsarMapImpl(PulsarSharedStateManager.PulsarSharedStateManagerBuilder builder,
                          SerDe<K> keySerDe,
                          SerDe<V> valueSerDe
     ) {
         this.keySerDe = keySerDe;
         this.valueSerDe = valueSerDe;
-        this.database = builder
+        this.stateManager = builder
                 .withOpSerializer(this::serializeOp)
                 .withOpDeserializer(this::deserializeOp)
                 .withDatabaseInitializer(() -> new ConcurrentHashMap<K,V>())
@@ -43,12 +43,12 @@ public class PulsarMapImpl <K,V> implements PulsarMap<K,V> {
 
     @Override
     public CompletableFuture<V> getOrDefault(K key, V defaultValue, boolean latest) {
-        return database.read(map -> map.getOrDefault(key, defaultValue), latest);
+        return stateManager.read(map -> map.getOrDefault(key, defaultValue), latest);
     }
 
     @Override
     public CompletableFuture<?> scan(Function<K, Boolean> filter, BiConsumer<K, V> processor, boolean latest) {
-        return database.read(map -> {
+        return stateManager.read(map -> {
             map.forEach((k,v) -> {
                 if (filter.apply(k)) {
                     processor.accept(k, v);
@@ -60,7 +60,7 @@ public class PulsarMapImpl <K,V> implements PulsarMap<K,V> {
 
     @Override
     public CompletableFuture<V> update(K key, BiFunction<K, V, V> operation) {
-        return database.write(map -> {
+        return stateManager.write(map -> {
             V currentValue = map.get(key);
             V finalValue = operation.apply(key, currentValue);
             if (finalValue == null) {
@@ -73,7 +73,7 @@ public class PulsarMapImpl <K,V> implements PulsarMap<K,V> {
 
     @Override
     public CompletableFuture<?> updateMultiple(Function<K, Boolean> filter, BiFunction<K, V, V> operation) {
-        return database.write(map -> {
+        return stateManager.write(map -> {
             List<MapOp> updates = new ArrayList<>();
             map.forEach((key, currentValue) -> {
                 V finalValue = operation.apply(key, currentValue);
@@ -89,7 +89,7 @@ public class PulsarMapImpl <K,V> implements PulsarMap<K,V> {
 
     @Override
     public CompletableFuture<?> clear() {
-        return database.write(map -> {
+        return stateManager.write(map -> {
             return Collections.singletonList(MapOp.CLEAR());
         }, Function.identity());
     }
@@ -165,6 +165,6 @@ public class PulsarMapImpl <K,V> implements PulsarMap<K,V> {
 
     @Override
     public void close() {
-        database.close();
+        stateManager.close();
     }
 }

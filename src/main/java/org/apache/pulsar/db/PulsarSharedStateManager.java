@@ -6,15 +6,15 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-public interface PulsarDatabase<V, O> extends AutoCloseable {
+public interface PulsarSharedStateManager<V, O> extends AutoCloseable {
 
-    interface PulsarDatabaseBuilder {
+    interface PulsarSharedStateManagerBuilder {
 
-        <O> PulsarDatabaseBuilder withOpSerializer(Function<O, byte[]> opSerializer);
-        <O> PulsarDatabaseBuilder withOpDeserializer(Function<byte[], O> opDeserializer);
-        <V> PulsarDatabaseBuilder withDatabaseInitializer(Supplier<V> databaseInitializer);
-        <V, O> PulsarDatabaseBuilder withChangeLogApplier(BiConsumer<V, O> changeLogApplier);
-        <V, O> PulsarDatabase<V, O> build();
+        <O> PulsarSharedStateManagerBuilder withOpSerializer(Function<O, byte[]> opSerializer);
+        <O> PulsarSharedStateManagerBuilder withOpDeserializer(Function<byte[], O> opDeserializer);
+        <V> PulsarSharedStateManagerBuilder withDatabaseInitializer(Supplier<V> databaseInitializer);
+        <V, O> PulsarSharedStateManagerBuilder withChangeLogApplier(BiConsumer<V, O> changeLogApplier);
+        <V, O> PulsarSharedStateManager<V, O> build();
     }
 
     /**

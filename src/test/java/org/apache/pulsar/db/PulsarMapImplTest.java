@@ -1,7 +1,7 @@
 package org.apache.pulsar.db;
 
-import org.apache.pulsar.db.impl.MemoryDatabaseImpl;
-import org.apache.pulsar.db.impl.PulsarDatabaseImpl;
+import org.apache.pulsar.db.impl.MemorySharedStateManagerImpl;
+import org.apache.pulsar.db.impl.PulsarSharedStateManagerImpl;
 import org.apache.pulsar.db.serde.StandardSerDe;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -18,7 +18,7 @@ public class PulsarMapImplTest {
     @Test
     public void basicTest() throws Exception {
         try (PulsarMap<String, Integer> map = PulsarMap.build(
-                MemoryDatabaseImpl.builder(),
+                MemorySharedStateManagerImpl.builder(),
                 StandardSerDe.STRING,
                 StandardSerDe.INTEGER);) {
 
@@ -50,7 +50,7 @@ public class PulsarMapImplTest {
             pulsarBroker.start();
 
             try (PulsarMap<String, Integer> map = PulsarMap.build(
-                    PulsarDatabaseImpl
+                    PulsarSharedStateManagerImpl
                             .builder()
                             .withPulsarClient(pulsarBroker.getPulsarClient())
                             .withTopic("persistent://public/default/mymap"),
@@ -62,7 +62,7 @@ public class PulsarMapImplTest {
 
                 // open another instance, ensure that we can read the data
                 try (PulsarMap<String, Integer> map2 = PulsarMap.build(
-                        PulsarDatabaseImpl
+                        PulsarSharedStateManagerImpl
                                 .builder()
                                 .withPulsarClient(pulsarBroker.getPulsarClient())
                                 .withTopic("persistent://public/default/mymap"),
